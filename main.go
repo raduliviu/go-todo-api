@@ -26,11 +26,11 @@ func getTodos(c *gin.Context) {
 func postTodo(c *gin.Context) {
 	var newTodo Todo
 
-	err := c.BindJSON(&newTodo)
-	if err != nil {
+	if err := c.BindJSON(&newTodo); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	newTodo.ID = len(todos) + 1
 
 	todos = append(todos, newTodo)
 	c.JSON(http.StatusCreated, newTodo)
