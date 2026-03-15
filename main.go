@@ -19,16 +19,29 @@ var todos = []Todo{
 	{ID: 3, Title: "Write unit tests", Completed: false},
 }
 
-func handleGetTodos(c *gin.Context) {
+func getTodos(c *gin.Context) {
 	c.JSON(http.StatusOK, todos)
+}
+
+func postTodo(c *gin.Context) {
+	var newTodo Todo
+
+	err := c.BindJSON(&newTodo)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	todos = append(todos, newTodo)
+	c.JSON(http.StatusCreated, newTodo)
 }
 
 func main() {
 	server := gin.Default()
 
-	server.GET("/todos", handleGetTodos)
-	err := server.Run(":8080")
-	if err != nil {
+	server.GET("/todos", getTodos)
+	server.POST("/todos", postTodo)
+	if err := server.Run(":8080"); err != nil {
 		log.Fatalf("failed to run server: %v", err)
 	}
 }
