@@ -13,12 +13,14 @@ type Todo struct {
 	Completed bool   `json:"completed"`
 }
 
+var todos = []Todo{
+	{ID: 1, Title: "Learn Go", Completed: false},
+	{ID: 2, Title: "Build a web server", Completed: false},
+	{ID: 3, Title: "Write unit tests", Completed: false},
+}
+
 func handleGetTodos(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"id":        1,
-		"title":     "Learn Go",
-		"completed": false,
-	})
+	c.JSON(http.StatusOK, todos)
 }
 
 func main() {
