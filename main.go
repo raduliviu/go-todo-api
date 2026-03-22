@@ -25,19 +25,6 @@ func getTodos(c *gin.Context) {
 	c.JSON(http.StatusOK, todos)
 }
 
-func postTodo(c *gin.Context) {
-	var newTodo Todo
-
-	if err := c.BindJSON(&newTodo); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	newTodo.ID = len(todos) + 1
-
-	todos = append(todos, newTodo)
-	c.JSON(http.StatusCreated, newTodo)
-}
-
 func getTodoByID(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -55,6 +42,48 @@ func getTodoByID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, todos[todoIndex])
+}
+
+func createTodo(c *gin.Context) {
+	var newTodo Todo
+
+	if err := c.BindJSON(&newTodo); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	newTodo.ID = len(todos) + 1
+
+	todos = append(todos, newTodo)
+	c.JSON(http.StatusCreated, newTodo)
+}
+
+func updateTodoByID(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	todoIndex := slices.IndexFunc(todos, func(todo Todo) bool {
+		return todo.ID == id
+	})
+
+	if todoIndex == -1 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Todo not found"})
+		return
+	}
+
+	// Get a pointer to the todo in the slice so BindJSON modifies it directly
+	updatedTodo := &todos[todoIndex]
+	// BindJSON reads the request body and unmarshals it into the struct; requires a pointer
+	if err := c.BindJSON(updatedTodo); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Preserve the original ID so the client can't overwrite it
+	updatedTodo.ID = id
+	c.JSON(http.StatusOK, updatedTodo)
 }
 
 func deleteTodoByID(c *gin.Context) {
@@ -85,7 +114,8 @@ func main() {
 
 	server.GET("/todos", getTodos)
 	server.GET("/todos/:id", getTodoByID)
-	server.POST("/todos", postTodo)
+	server.POST("/todos", createTodo)
+	server.PATCH("/todos/:id", updateTodoByID)
 	server.DELETE("/todos/:id", deleteTodoByID)
 
 	if err := server.Run(":8080"); err != nil {

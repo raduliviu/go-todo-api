@@ -24,6 +24,12 @@ curl -X GET http://localhost:8080/todos/1 -H "Content-Type: application/json"
 curl -X POST http://localhost:8080/todos -H "Content-Type: application/json" -d '{"id": 4, "title": "Submit new todo", "completed": false}'
 ```
 
+### PATCH BY ID
+
+```bash
+curl -X PATCH http://localhost:8080/todos/1 -H "Content-Type: application/json" -d '{"completed": true}'
+```
+
 ### DELETE BY ID
 
 ```bash
