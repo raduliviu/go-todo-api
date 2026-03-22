@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -44,13 +45,39 @@ func getTodoByID(c *gin.Context) {
 		return
 	}
 
-	for _, todo := range todos {
-		if todo.ID == id {
-			c.JSON(http.StatusOK, todo)
-			return
-		}
+	todoIndex := slices.IndexFunc(todos, func(todo Todo) bool {
+		return todo.ID == id
+	})
+
+	if todoIndex == -1 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Todo not found"})
+		return
 	}
-	c.JSON(http.StatusNotFound, gin.H{"error": "Todo not found"})
+
+	c.JSON(http.StatusOK, todos[todoIndex])
+}
+
+func deleteTodoByID(c *gin.Context) {
+	// Convert the URL param from string to int
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	// Find the index of the todo matching the ID; returns -1 if not found
+	todoIndex := slices.IndexFunc(todos, func(todo Todo) bool {
+		return todo.ID == id
+	})
+
+	if todoIndex == -1 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Todo not found"})
+		return
+	}
+
+	// Remove the element at todoIndex from the slice
+	todos = slices.Delete(todos, todoIndex, todoIndex+1)
+	c.Status(http.StatusNoContent)
 }
 
 func main() {
@@ -59,6 +86,7 @@ func main() {
 	server.GET("/todos", getTodos)
 	server.GET("/todos/:id", getTodoByID)
 	server.POST("/todos", postTodo)
+	server.DELETE("/todos/:id", deleteTodoByID)
 
 	if err := server.Run(":8080"); err != nil {
 		log.Fatalf("failed to run server: %v", err)
