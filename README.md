@@ -12,6 +12,12 @@ Reference, for quick testing
 curl -X GET http://localhost:8080/todos -H "Content-Type: application/json"
 ```
 
+### GET BY ID
+
+```bash
+curl -X GET http://localhost:8080/todos/1 -H "Content-Type: application/json"
+```
+
 ### POST
 
 ```bash

@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -36,11 +37,29 @@ func postTodo(c *gin.Context) {
 	c.JSON(http.StatusCreated, newTodo)
 }
 
+func getTodoByID(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	for _, todo := range todos {
+		if todo.ID == id {
+			c.JSON(http.StatusOK, todo)
+			return
+		}
+	}
+	c.JSON(http.StatusNotFound, gin.H{"error": "Todo not found"})
+}
+
 func main() {
 	server := gin.Default()
 
 	server.GET("/todos", getTodos)
+	server.GET("/todos/:id", getTodoByID)
 	server.POST("/todos", postTodo)
+
 	if err := server.Run(":8080"); err != nil {
 		log.Fatalf("failed to run server: %v", err)
 	}
