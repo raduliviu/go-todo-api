@@ -117,7 +117,13 @@ Notice there's no `try/catch`. Go doesn't have exceptions. Instead, functions re
 go run .
 ```
 
-This compiles and runs your code in one step (like `npx ts-node`). Hit `http://localhost:8080/todos` and you should see your hardcoded todo.
+This compiles and runs your code in one step (like `npx ts-node`). Test it with curl:
+
+```bash
+curl http://localhost:8080/todos
+```
+
+You should see your hardcoded todo in the response.
 
 ### Adding mock data
 
