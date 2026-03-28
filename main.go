@@ -2,11 +2,13 @@ package main
 
 import (
 	"log"
+	"os"
 
+	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/gin-gonic/gin"
 )
 
-func main() {
+func setupRouter() *gin.Engine {
 	server := gin.Default()
 
 	server.GET("/todos", getTodos)
@@ -15,7 +17,18 @@ func main() {
 	server.PATCH("/todos/:id", updateTodoByID)
 	server.DELETE("/todos/:id", deleteTodoByID)
 
-	if err := server.Run(":8080"); err != nil {
-		log.Fatalf("failed to run server: %v", err)
+	return server
+}
+
+func main() {
+	router := setupRouter()
+
+	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" {
+		lambda.Start(ginHandler(router))
+	} else {
+		if err := router.Run(":8080"); err != nil {
+			log.Fatalf("failed to run server: %v", err)
+		}
 	}
+
 }

@@ -16,25 +16,33 @@ Three services, each with a distinct responsibility:
 
 **IAM** (Identity and Access Management) controls permissions. Every Lambda function runs under an IAM role that defines what AWS services it's allowed to call. SAM creates a basic role automatically — later, when we add DynamoDB or SQS, we'll extend it.
 
-## The problem Lambda Web Adapter solves
+## Bridging Lambda and Gin
 
-Lambda doesn't speak HTTP natively. It receives a JSON event and expects a JSON response. A typical Lambda handler looks like this:
+Lambda doesn't speak HTTP natively. It receives a JSON event from API Gateway and expects a JSON response back:
 
 ```go
-func handler(event MyEvent) (MyResponse, error) { ... }
+func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) { ... }
 ```
 
-Your Gin app, on the other hand, is a standard HTTP server. It listens on a port and speaks HTTP. These two models are incompatible out of the box.
+Gin, on the other hand, is a standard HTTP server. These two models are incompatible out of the box.
 
-The **Lambda Web Adapter (LWA)** bridges the gap. It's an AWS-published extension that:
+We bridge them with a custom adapter in `lambda.go` that translates API Gateway events into `http.Request` objects, runs them through Gin's router, and converts the response back. This keeps all existing handler code unchanged while teaching the actual Lambda programming model.
 
-1. Starts your Go binary as a subprocess
-2. Receives the Lambda JSON event from API Gateway
-3. Translates it into a standard HTTP request
-4. Forwards it to your app on `localhost:8080`
-5. Returns the HTTP response back to Lambda as JSON
+An alternative — the Lambda Web Adapter (LWA) — does this translation transparently without code changes. We tried it first but switched away: LWA doesn't work with `sam local start-api`, meaning you can't test Lambda behaviour locally without deploying to AWS. The native handler approach gives you full local testability.
 
-The result: your `main.go` stays exactly as written. No AWS imports, no handler rewrites, no coupling to Lambda's event format.
+## Dual-mode main.go
+
+Because the binary now needs to behave differently in two environments, `main.go` checks an environment variable to decide which mode to start in:
+
+```go
+if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" {
+    lambda.Start(ginHandler(r))  // Lambda or sam local
+} else {
+    r.Run(":8080")               // local development
+}
+```
+
+`AWS_LAMBDA_FUNCTION_NAME` is set automatically by both real Lambda and `sam local` — no manual configuration needed. `go run .` continues to work exactly as before.
 
 ## The tooling: SAM
 
@@ -52,8 +60,9 @@ SAM is a layer on top of CloudFormation, AWS's general infrastructure-as-code se
 By the end of this chapter:
 
 - A `Makefile` that cross-compiles the Go binary for Lambda's Linux environment
+- A `lambda.go` adapter that translates between Lambda events and Gin's HTTP handler
 - A `template.yaml` that defines the full infrastructure
-- A working local development setup via `sam local`
+- A dual-mode `main.go` that runs as an HTTP server locally and as a Lambda handler in AWS
 - A live API on AWS behind a real API Gateway URL
 
 The in-memory todo store stays for now — the API will work end-to-end on Lambda, just without persistence between cold starts. We'll add a database in a later chapter.

@@ -13,12 +13,6 @@ Resources:
       Runtime: provided.al2023
       Architectures:
       - x86_64
-      Layers:
-      - arn:aws:lambda:eu-central-1:753240598075:layer:LambdaAdapterLayerX86:22
-      Environment:
-        Variables:
-          PORT: '8080'
-          AWS_LAMBDA_EXEC_WRAPPER: /opt/bootstrap
       Events:
         ApiEvent:
           Type: Api
