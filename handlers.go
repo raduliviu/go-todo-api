@@ -1,41 +1,57 @@
 package main
 
 import (
+	"database/sql"
+	"errors"
 	"net/http"
-	"slices"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/raduliviu/go-todo-api/store"
 )
+
+type Handler struct {
+	store store.TodoStorer
+}
+
+func NewHandler(store store.TodoStorer) *Handler {
+	return &Handler{store: store}
+}
 
 func errorResponse(msg string) gin.H {
 	return gin.H{"error": msg}
 }
 
-func getTodos(c *gin.Context) {
+func (h *Handler) getTodos(c *gin.Context) {
+	todos, err := h.store.GetAll(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse("Failed to fetch todos"))
+		return
+	}
 	c.JSON(http.StatusOK, todos)
 }
 
-func getTodoByID(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
+func (h *Handler) getTodoByID(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, errorResponse("Invalid ID"))
 		return
 	}
 
-	todoIndex := slices.IndexFunc(todos, func(todo Todo) bool {
-		return todo.ID == id
-	})
-
-	if todoIndex == -1 {
-		c.JSON(http.StatusNotFound, errorResponse("Todo not found"))
+	todo, err := h.store.GetByID(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, errorResponse("Todo not found"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, errorResponse("Failed to fetch todo"))
 		return
 	}
 
-	c.JSON(http.StatusOK, todos[todoIndex])
+	c.JSON(http.StatusOK, todo)
 }
 
-func createTodo(c *gin.Context) {
+func (h *Handler) createTodo(c *gin.Context) {
 	var req CreateTodoRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -43,29 +59,33 @@ func createTodo(c *gin.Context) {
 		return
 	}
 
-	newTodo := Todo{
-		ID:        len(todos) + 1,
+	todo := &store.Todo{
 		Title:     req.Title,
 		Completed: req.Completed,
 	}
 
-	todos = append(todos, newTodo)
-	c.JSON(http.StatusCreated, newTodo)
+	if err := h.store.Create(c.Request.Context(), todo); err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse("Failed to create todo"))
+		return
+	}
+
+	c.JSON(http.StatusCreated, todo)
 }
 
-func updateTodoByID(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
+func (h *Handler) updateTodoByID(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, errorResponse("Invalid ID"))
 		return
 	}
 
-	todoIndex := slices.IndexFunc(todos, func(todo Todo) bool {
-		return todo.ID == id
-	})
-
-	if todoIndex == -1 {
-		c.JSON(http.StatusNotFound, errorResponse("Todo not found"))
+	todo, err := h.store.GetByID(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, errorResponse("Todo not found"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, errorResponse("Failed to fetch todo"))
 		return
 	}
 
@@ -76,34 +96,35 @@ func updateTodoByID(c *gin.Context) {
 	}
 
 	if req.Title != nil {
-		todos[todoIndex].Title = *req.Title
+		todo.Title = *req.Title
 	}
 	if req.Completed != nil {
-		todos[todoIndex].Completed = *req.Completed
+		todo.Completed = *req.Completed
 	}
 
-	c.JSON(http.StatusOK, todos[todoIndex])
+	if err := h.store.Update(c.Request.Context(), todo); err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse("Failed to update todo"))
+		return
+	}
+
+	c.JSON(http.StatusOK, todo)
 }
 
-func deleteTodoByID(c *gin.Context) {
-	// Convert the URL param from string to int
-	id, err := strconv.Atoi(c.Param("id"))
+func (h *Handler) deleteTodoByID(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, errorResponse("Invalid ID"))
 		return
 	}
 
-	// Find the index of the todo matching the ID; returns -1 if not found
-	todoIndex := slices.IndexFunc(todos, func(todo Todo) bool {
-		return todo.ID == id
-	})
-
-	if todoIndex == -1 {
-		c.JSON(http.StatusNotFound, errorResponse("Todo not found"))
+	if err := h.store.Delete(c.Request.Context(), id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, errorResponse("Todo not found"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, errorResponse("Failed to delete todo"))
 		return
 	}
 
-	// Remove the element at todoIndex from the slice
-	todos = slices.Delete(todos, todoIndex, todoIndex+1)
 	c.Status(http.StatusNoContent)
 }

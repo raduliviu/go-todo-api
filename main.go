@@ -8,20 +8,21 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func setupRouter() *gin.Engine {
+func setupRouter(h *Handler) *gin.Engine {
 	server := gin.Default()
 
-	server.GET("/todos", getTodos)
-	server.GET("/todos/:id", getTodoByID)
-	server.POST("/todos", createTodo)
-	server.PATCH("/todos/:id", updateTodoByID)
-	server.DELETE("/todos/:id", deleteTodoByID)
+	server.GET("/todos", h.getTodos)
+	server.GET("/todos/:id", h.getTodoByID)
+	server.POST("/todos", h.createTodo)
+	server.PATCH("/todos/:id", h.updateTodoByID)
+	server.DELETE("/todos/:id", h.deleteTodoByID)
 
 	return server
 }
 
 func main() {
-	router := setupRouter()
+	h := NewHandler(nil)
+	router := setupRouter(h)
 
 	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" {
 		lambda.Start(ginHandler(router))

@@ -2,20 +2,78 @@ package main
 
 import (
 	"bytes"
+	"cmp"
+	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/raduliviu/go-todo-api/store"
 )
 
-func resetTodos() {
-	todos = []Todo{
-		{ID: 1, Title: "Learn Go", Completed: false},
-		{ID: 2, Title: "Build a web server", Completed: false},
-		{ID: 3, Title: "Write unit tests", Completed: false},
+type inMemoryStore struct {
+	todos  map[int64]*store.Todo
+	nextID int64
+}
+
+func newInMemoryStore() *inMemoryStore {
+	s := &inMemoryStore{
+		todos:  make(map[int64]*store.Todo),
+		nextID: 4,
 	}
+	s.todos[1] = &store.Todo{ID: 1, Title: "Learn Go", Completed: false}
+	s.todos[2] = &store.Todo{ID: 2, Title: "Build a web server", Completed: false}
+	s.todos[3] = &store.Todo{ID: 3, Title: "Write unit tests", Completed: false}
+	return s
+}
+
+func (s *inMemoryStore) GetAll(ctx context.Context) ([]store.Todo, error) {
+	result := make([]store.Todo, 0, len(s.todos))
+	for _, t := range s.todos {
+		result = append(result, *t)
+	}
+	slices.SortFunc(result, func(a, b store.Todo) int {
+		return cmp.Compare(a.ID, b.ID)
+	})
+	return result, nil
+}
+
+func (s *inMemoryStore) GetByID(ctx context.Context, id int64) (*store.Todo, error) {
+	t, ok := s.todos[id]
+	if !ok {
+		return nil, sql.ErrNoRows
+	}
+	copy := *t
+	return &copy, nil
+}
+
+func (s *inMemoryStore) Create(ctx context.Context, todo *store.Todo) error {
+	todo.ID = s.nextID
+	s.nextID++
+	copy := *todo
+	s.todos[todo.ID] = &copy
+	return nil
+}
+
+func (s *inMemoryStore) Update(ctx context.Context, todo *store.Todo) error {
+	if _, ok := s.todos[todo.ID]; !ok {
+		return sql.ErrNoRows
+	}
+	copy := *todo
+	s.todos[todo.ID] = &copy
+	return nil
+}
+
+func (s *inMemoryStore) Delete(ctx context.Context, id int64) error {
+	if _, ok := s.todos[id]; !ok {
+		return sql.ErrNoRows
+	}
+	delete(s.todos, id)
+	return nil
 }
 
 func performRequest(router *gin.Engine, method, path string, body []byte) *httptest.ResponseRecorder {
@@ -37,8 +95,9 @@ func TestMain(m *testing.M) {
 }
 
 func TestGetTodos(t *testing.T) {
-	resetTodos()
-	router := setupRouter()
+	s := newInMemoryStore()
+	h := NewHandler(s)
+	router := setupRouter(h)
 
 	w := performRequest(router, http.MethodGet, "/todos", nil)
 
@@ -46,7 +105,7 @@ func TestGetTodos(t *testing.T) {
 		t.Errorf("status: got %d, want %d", w.Code, http.StatusOK)
 	}
 
-	var got []Todo
+	var got []store.Todo
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 		t.Fatalf("could not unmarshal response: %v", err)
 	}
@@ -57,21 +116,22 @@ func TestGetTodos(t *testing.T) {
 }
 
 func TestGetTodoByID(t *testing.T) {
-	resetTodos()
-	router := setupRouter()
+	s := newInMemoryStore()
+	h := NewHandler(s)
+	router := setupRouter(h)
 
 	tests := []struct {
 		name       string
 		path       string
 		wantStatus int
-		wantTodo   *Todo
+		wantTodo   *store.Todo
 		wantError  string
 	}{
 		{
 			name:       "existing id returns correct todo",
 			path:       "/todos/1",
 			wantStatus: http.StatusOK,
-			wantTodo:   &Todo{ID: 1, Title: "Learn Go", Completed: false},
+			wantTodo:   &store.Todo{ID: 1, Title: "Learn Go", Completed: false},
 		},
 		{
 			name:       "non-existent id returns 404",
@@ -96,7 +156,7 @@ func TestGetTodoByID(t *testing.T) {
 			}
 
 			if tc.wantTodo != nil {
-				var got Todo
+				var got store.Todo
 				if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 					t.Fatalf("unmarshal failed: %v", err)
 				}
@@ -123,13 +183,13 @@ func TestCreateTodo(t *testing.T) {
 		name       string
 		body       []byte
 		wantStatus int
-		wantTodo   *Todo
+		wantTodo   *store.Todo
 	}{
 		{
 			name:       "valid body creates todo and returns 201",
 			body:       []byte(`{"title": "Deploy to prod", "completed": false}`),
 			wantStatus: http.StatusCreated,
-			wantTodo:   &Todo{ID: 4, Title: "Deploy to prod", Completed: false},
+			wantTodo:   &store.Todo{ID: 4, Title: "Deploy to prod", Completed: false},
 		},
 		{
 			name:       "malformed JSON returns 400",
@@ -155,14 +215,15 @@ func TestCreateTodo(t *testing.T) {
 			name:       "omitted completed defaults to false",
 			body:       []byte(`{"title":"New task"}`),
 			wantStatus: http.StatusCreated,
-			wantTodo:   &Todo{ID: 4, Title: "New task", Completed: false},
+			wantTodo:   &store.Todo{ID: 4, Title: "New task", Completed: false},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			resetTodos()
-			router := setupRouter()
+			s := newInMemoryStore()
+			h := NewHandler(s)
+			router := setupRouter(h)
 
 			w := performRequest(router, http.MethodPost, "/todos", tc.body)
 
@@ -171,7 +232,7 @@ func TestCreateTodo(t *testing.T) {
 			}
 
 			if tc.wantTodo != nil {
-				var got Todo
+				var got store.Todo
 				if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 					t.Fatalf("unmarshal failed: %v", err)
 				}
@@ -189,7 +250,7 @@ func TestUpdateTodoByID(t *testing.T) {
 		path       string
 		body       []byte
 		wantStatus int
-		wantTodo   *Todo
+		wantTodo   *store.Todo
 		wantError  string
 	}{
 		{
@@ -197,14 +258,14 @@ func TestUpdateTodoByID(t *testing.T) {
 			path:       "/todos/1",
 			body:       []byte(`{"title": "Learn Go well", "completed": true}`),
 			wantStatus: http.StatusOK,
-			wantTodo:   &Todo{ID: 1, Title: "Learn Go well", Completed: true},
+			wantTodo:   &store.Todo{ID: 1, Title: "Learn Go well", Completed: true},
 		},
 		{
 			name:       "client cannot override id",
 			path:       "/todos/1",
 			body:       []byte(`{"id": 999, "title": "sneaky", "completed": false}`),
 			wantStatus: http.StatusOK,
-			wantTodo:   &Todo{ID: 1, Title: "sneaky", Completed: false},
+			wantTodo:   &store.Todo{ID: 1, Title: "sneaky", Completed: false},
 		},
 		{
 			name:       "non-existent id returns 404",
@@ -231,14 +292,14 @@ func TestUpdateTodoByID(t *testing.T) {
 			path:       "/todos/1",
 			body:       []byte(`{"title": "Learn Go deeply"}`),
 			wantStatus: http.StatusOK,
-			wantTodo:   &Todo{ID: 1, Title: "Learn Go deeply", Completed: false},
+			wantTodo:   &store.Todo{ID: 1, Title: "Learn Go deeply", Completed: false},
 		},
 		{
 			name:       "partial update only changes completed",
 			path:       "/todos/1",
 			body:       []byte(`{"completed": true}`),
 			wantStatus: http.StatusOK,
-			wantTodo:   &Todo{ID: 1, Title: "Learn Go", Completed: true},
+			wantTodo:   &store.Todo{ID: 1, Title: "Learn Go", Completed: true},
 		},
 		{
 			name:       "empty title in update returns 400",
@@ -250,8 +311,9 @@ func TestUpdateTodoByID(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			resetTodos()
-			router := setupRouter()
+			s := newInMemoryStore()
+			h := NewHandler(s)
+			router := setupRouter(h)
 
 			w := performRequest(router, http.MethodPatch, tc.path, tc.body)
 
@@ -260,7 +322,7 @@ func TestUpdateTodoByID(t *testing.T) {
 			}
 
 			if tc.wantTodo != nil {
-				var got Todo
+				var got store.Todo
 				if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 					t.Fatalf("unmarshal failed: %v", err)
 				}
@@ -310,8 +372,9 @@ func TestDeleteTodoByID(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			resetTodos()
-			router := setupRouter()
+			s := newInMemoryStore()
+			h := NewHandler(s)
+			router := setupRouter(h)
 
 			w := performRequest(router, http.MethodDelete, tc.path, nil)
 
