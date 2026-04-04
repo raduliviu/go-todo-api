@@ -3,8 +3,8 @@
 - [x] **Refactoring** — Split main.go into separate files/packages following Go project layout conventions
 - [x] **Dockerizing** — Containerize the API so it's runnable locally
 - [x] **AWS Lambda** — Deploy to AWS using Lambda + API Gateway with a native handler and custom Gin adapter
-- [ ] **Testing** — Write HTTP handler tests using Go's httptest and Gin's test utilities
-- [ ] **Error handling & validation** — Request structs, custom error responses, field-level validation
+- [x] **Testing** — Write HTTP handler tests using Go's httptest and Gin's test utilities
+- [x] **Error handling & validation** — Request structs, custom error responses, field-level validation
 - [ ] **PostgreSQL** — Database storage with migrations, connection pooling. Revisit cmd/internal project layout at this stage
 - [ ] **DynamoDB** — Explore NoSQL as an alternative storage pattern on AWS
 - [ ] **Authentication** — Lock the API down to a lightweight frontend deployed on AWS Amplify. Options to evaluate: API Gateway resource policies, Cognito, or API keys

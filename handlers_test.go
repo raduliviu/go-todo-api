@@ -136,6 +136,27 @@ func TestCreateTodo(t *testing.T) {
 			body:       []byte(`{bad json}`),
 			wantStatus: http.StatusBadRequest,
 		},
+		{
+			name:       "missing title returns 400",
+			body:       []byte(`{"completed": false}`),
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "empty title returns 400",
+			body:       []byte(`{"title": "", "completed": false}`),
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "title too long returns 400",
+			body:       []byte(`{"title": "` + string(bytes.Repeat([]byte("a"), 256)) + `", "completed": false}`),
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "omitted completed defaults to false",
+			body:       []byte(`{"title":"New task"}`),
+			wantStatus: http.StatusCreated,
+			wantTodo:   &Todo{ID: 4, Title: "New task", Completed: false},
+		},
 	}
 
 	for _, tc := range tests {
@@ -203,6 +224,26 @@ func TestUpdateTodoByID(t *testing.T) {
 			name:       "malformed JSON returns 400",
 			path:       "/todos/1",
 			body:       []byte(`{bad}`),
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "partial update only changes title",
+			path:       "/todos/1",
+			body:       []byte(`{"title": "Learn Go deeply"}`),
+			wantStatus: http.StatusOK,
+			wantTodo:   &Todo{ID: 1, Title: "Learn Go deeply", Completed: false},
+		},
+		{
+			name:       "partial update only changes completed",
+			path:       "/todos/1",
+			body:       []byte(`{"completed": true}`),
+			wantStatus: http.StatusOK,
+			wantTodo:   &Todo{ID: 1, Title: "Learn Go", Completed: true},
+		},
+		{
+			name:       "empty title in update returns 400",
+			path:       "/todos/1",
+			body:       []byte(`{"title": ""}`),
 			wantStatus: http.StatusBadRequest,
 		},
 	}

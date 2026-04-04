@@ -8,6 +8,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func errorResponse(msg string) gin.H {
+	return gin.H{"error": msg}
+}
+
 func getTodos(c *gin.Context) {
 	c.JSON(http.StatusOK, todos)
 }
@@ -15,7 +19,7 @@ func getTodos(c *gin.Context) {
 func getTodoByID(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		c.JSON(http.StatusBadRequest, errorResponse("Invalid ID"))
 		return
 	}
 
@@ -24,7 +28,7 @@ func getTodoByID(c *gin.Context) {
 	})
 
 	if todoIndex == -1 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Todo not found"})
+		c.JSON(http.StatusNotFound, errorResponse("Todo not found"))
 		return
 	}
 
@@ -32,13 +36,18 @@ func getTodoByID(c *gin.Context) {
 }
 
 func createTodo(c *gin.Context) {
-	var newTodo Todo
+	var req CreateTodoRequest
 
-	if err := c.BindJSON(&newTodo); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse(err.Error()))
 		return
 	}
-	newTodo.ID = len(todos) + 1
+
+	newTodo := Todo{
+		ID:        len(todos) + 1,
+		Title:     req.Title,
+		Completed: req.Completed,
+	}
 
 	todos = append(todos, newTodo)
 	c.JSON(http.StatusCreated, newTodo)
@@ -47,7 +56,7 @@ func createTodo(c *gin.Context) {
 func updateTodoByID(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		c.JSON(http.StatusBadRequest, errorResponse("Invalid ID"))
 		return
 	}
 
@@ -56,28 +65,31 @@ func updateTodoByID(c *gin.Context) {
 	})
 
 	if todoIndex == -1 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Todo not found"})
+		c.JSON(http.StatusNotFound, errorResponse("Todo not found"))
 		return
 	}
 
-	// Get a pointer to the todo in the slice so BindJSON modifies it directly
-	updatedTodo := &todos[todoIndex]
-	// BindJSON reads the request body and unmarshals it into the struct; requires a pointer
-	if err := c.BindJSON(updatedTodo); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	var req UpdateTodoRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse(err.Error()))
 		return
 	}
 
-	// Preserve the original ID so the client can't overwrite it
-	updatedTodo.ID = id
-	c.JSON(http.StatusOK, updatedTodo)
+	if req.Title != nil {
+		todos[todoIndex].Title = *req.Title
+	}
+	if req.Completed != nil {
+		todos[todoIndex].Completed = *req.Completed
+	}
+
+	c.JSON(http.StatusOK, todos[todoIndex])
 }
 
 func deleteTodoByID(c *gin.Context) {
 	// Convert the URL param from string to int
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		c.JSON(http.StatusBadRequest, errorResponse("Invalid ID"))
 		return
 	}
 
@@ -87,7 +99,7 @@ func deleteTodoByID(c *gin.Context) {
 	})
 
 	if todoIndex == -1 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Todo not found"})
+		c.JSON(http.StatusNotFound, errorResponse("Todo not found"))
 		return
 	}
 
