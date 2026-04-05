@@ -6,6 +6,8 @@ import (
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/gin-gonic/gin"
+	"github.com/raduliviu/go-todo-api/db"
+	"github.com/raduliviu/go-todo-api/store"
 )
 
 func setupRouter(h *Handler) *gin.Engine {
@@ -21,7 +23,14 @@ func setupRouter(h *Handler) *gin.Engine {
 }
 
 func main() {
-	h := NewHandler(nil)
+	dsn := os.Getenv("DATABASE_URL")
+	database := db.NewDB(dsn)
+	defer database.Close()
+	if err := db.RunMigrations(database); err != nil {
+		log.Fatalf("failed to run migrations: %v", err)
+	}
+	todoStore := store.NewTodoStore(database)
+	h := NewHandler(todoStore)
 	router := setupRouter(h)
 
 	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" {

@@ -22,3 +22,6 @@
 
 # OS files
 .DS_Store
+
+# Local environment — never commit real credentials
+.env

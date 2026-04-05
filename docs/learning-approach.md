@@ -19,6 +19,8 @@ The approach below is the upgrade: keep worked examples for genuinely new concep
 3. Give an exercise: implement the next case yourself
 4. Tests / compiler are the oracle — not the teacher
 
+**Important:** A new third-party library or API always counts as a new concept, even if the surrounding Go pattern is familiar. Never give a spec that requires calling an unfamiliar library without first explaining what it does and showing how to use it. Sending someone to read docs they've never seen is not a spec — it's a scavenger hunt.
+
 ### Mode 2 — Applying a known pattern (2nd+ case)
 
 1. Give a spec only: what it should do, inputs, outputs, error cases
