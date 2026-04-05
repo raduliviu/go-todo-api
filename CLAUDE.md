@@ -17,6 +17,8 @@ See `docs/learning-approach.md` for the full rationale. In practice:
 - One file at a time. Verify compilation and tests pass before moving to the next file.
 - When a chapter is complete: write lesson docs in `docs/<chapter>/`
 - When something goes wrong: diagnose before prescribing. Read the relevant file before assuming what the problem is.
+- Never claim something is in a file without reading it first with the Read tool.
+- Never ask Radu to share files — use the Read tool directly.
 
 ## Context
 
