@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/raduliviu/go-todo-api/db"
 	"github.com/raduliviu/go-todo-api/store"
@@ -12,6 +13,14 @@ import (
 
 func setupRouter(h *Handler) *gin.Engine {
 	server := gin.Default()
+
+	allowOrigins := os.Getenv("ALLOWED_ORIGINS")
+
+	server.Use(cors.New(cors.Config{
+		AllowOrigins: []string{allowOrigins},
+		AllowMethods: []string{"GET", "POST", "PATCH", "DELETE"},
+		AllowHeaders: []string{"Content-Type"},
+	}))
 
 	server.GET("/todos", h.getTodos)
 	server.GET("/todos/:id", h.getTodoByID)
