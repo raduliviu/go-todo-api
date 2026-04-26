@@ -8,6 +8,7 @@ region = "eu-central-1"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
 image_repositories = []
+parameter_overrides = "SecretArn=\"arn:aws:secretsmanager:eu-central-1:930961873958:secret:go-todo-api/db-credentials-fAqlor\" AllowedOrigins=\"http://localhost:5173,https://main.dyrmukzjcy2c7.amplifyapp.com\""
 
 [default.global.parameters]
 region = "eu-central-1"

@@ -2,6 +2,12 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Go Todo API on AWS Lambda
 
+Parameters:
+  SecretArn:
+    Type: String
+  AllowedOrigins:
+    Type: String
+
 Globals:
   Function:
     Timeout: 30
@@ -15,6 +21,13 @@ Resources:
       Runtime: provided.al2023
       Architectures:
         - x86_64
+      Environment:
+        Variables:
+          SECRET_ARN: !Ref SecretArn
+          ALLOWED_ORIGINS: !Ref AllowedOrigins
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref SecretArn
       Events:
         ApiEvent:
           Type: Api

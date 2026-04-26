@@ -25,3 +25,5 @@
 
 # Local environment — never commit real credentials
 .env
+
+.aws-sam/

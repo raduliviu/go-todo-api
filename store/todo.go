@@ -31,7 +31,7 @@ func NewTodoStore(db *bun.DB) *TodoStore {
 }
 
 func (s *TodoStore) GetAll(ctx context.Context) ([]Todo, error) {
-	var todos []Todo
+	todos := make([]Todo, 0)
 	err := s.db.NewSelect().
 		Model(&todos).
 		OrderExpr("id ASC").
