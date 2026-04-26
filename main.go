@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/gin-contrib/cors"
@@ -16,8 +17,10 @@ func setupRouter(h *Handler) *gin.Engine {
 
 	allowOrigins := os.Getenv("ALLOWED_ORIGINS")
 
+	splitOrigins := strings.Split(allowOrigins, ",")
+
 	server.Use(cors.New(cors.Config{
-		AllowOrigins: []string{allowOrigins},
+		AllowOrigins: splitOrigins,
 		AllowMethods: []string{"GET", "POST", "PATCH", "DELETE"},
 		AllowHeaders: []string{"Content-Type"},
 	}))
